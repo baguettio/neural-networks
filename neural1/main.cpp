@@ -1,110 +1,110 @@
+#include "util.h"
 #include <iostream> 
 #include <array>
-//REMEMBER MATRIX ADD IS NOT REPORTING DIMENSION ERRORS PROPERLY
-
-template <std::size_t Rows1, std::size_t Cols1, std::size_t Rows2, std::size_t Cols2> 
-void matrixMultiply(const std::array<std::array<float, Cols1>, Rows1>& matrix1, const std::array<std::array<float, Cols2>, Rows2>& matrix2,  std::array<std::array<float, Cols2>, Rows1>& matrix3) {
-    if (Cols1 != Rows2)
-    {
-        std::cout << "Cannot multiply matrices of these dimensions" << std::endl;
-        return;
-    }
-
-    for(std::size_t i = 0; i < Rows1; i++)
-    {
-        for(std::size_t j = 0; j < Cols2; j++)
-        {
-            float sum = 0;
-            for(std::size_t k = 0; k < Cols1; k++)
-            {
-                sum += matrix1[i][k] * matrix2[k][j];
-            }
-            matrix3[i][j] = sum;
-        }
-    }
-}
-//since all three matrices should be of the same size for addition subtraction and the hadmard product, we only need a template for one of them (passing a matrix of incorrect dimensions will result in a runtime error)
-template <std::size_t Rows1, std::size_t Cols1>
-void matrixAdd(const std::array<std::array<float, Cols1>, Rows1>& matrix1, const std::array<std::array<float, Cols1>, Rows1>& matrix2, std::array<std::array<float, Cols1>, Rows1>& resultMatrix) {
-    for (std::size_t i = 0; i < Rows1; i++) {
-        for (std::size_t j = 0; j < Cols1; j++) {
-            resultMatrix[i][j] = matrix1[i][j] + matrix2[i][j];
-        }
-    }
-}
-template <std::size_t Rows1, std::size_t Cols1>
-void matrixSubtract(const std::array<std::array<float, Cols1>, Rows1>& matrix1, const std::array<std::array<float, Cols1>, Rows1>& matrix2, std::array<std::array<float, Cols1>, Rows1>& resultMatrix) {
-    for (std::size_t i = 0; i < Rows1; i++) {
-        for (std::size_t j = 0; j < Cols1; j++) {
-            resultMatrix[i][j] = matrix1[i][j] - matrix2[i][j];
-        }
-    }
-}
-template <std::size_t Rows1, std::size_t Cols1>
-void hadmardProduct(const std::array<std::array<float, Cols1>, Rows1>& matrix1, const std::array<std::array<float, Cols1>, Rows1>& matrix2, std::array<std::array<float, Cols1>, Rows1>& resultMatrix) {
-    
-    for (std::size_t i = 0; i < Rows1; i++) {
-        for (std::size_t j = 0; j < Cols1; j++) {
-            resultMatrix[i][j] = matrix1[i][j] * matrix2[i][j];
-        }
-    }
-}
-//and for transposition, we still only need one template but the second matrix will be of size cols1 x rows1
-template <std::size_t Rows1, std::size_t Cols1>
-void transpose(const std::array<std::array<float, Cols1>, Rows1>& matrix1, std::array<std::array<float, Rows1>, Cols1>& resultMatrix) {
-    for (std::size_t i = 0; i < Rows1; i++) {
-        for (std::size_t j = 0; j < Cols1; j++) {
-            resultMatrix[j][i] = matrix1[i][j];
-        }
-    }
-}
+#include <fstream>
+#include <cstdint>
+#include <cmath>
 
 int main(){
     constexpr size_t inputNeurons = 784, hiddenNeurons = 30, outputNeurons = 10;
 
-    std::array<float, inputNeurons> inputLayer; // the input vector
-    std::array<float, hiddenNeurons> hiddenBiases; // the biases for the hidden layer
-    std::array<std::array<float, inputNeurons>, hiddenNeurons> inputWeights; // the weights connecting the input and hidden layer
+    static std::array<std::array<float, inputNeurons>, 1> inputLayer; // the input vector
+    static std::array<std::array<float, hiddenNeurons>, 1> hiddenBiases; // the biases for the hidden layer
+    static std::array<std::array<float, hiddenNeurons>, inputNeurons> inputWeights; // the weights connecting the input and hidden layer
 
-    std::array<float, hiddenNeurons> hiddenLayer; // the hidden layer
-    std::array<float, outputNeurons> outputBiases; // the biases for the output layer
-    std::array<std::array<float, hiddenNeurons>, outputNeurons> hiddenWeights; // the weights connecting the hidden and output layer
+    static std::array<std::array<float, hiddenNeurons>, 1> hiddenLayer; // the hidden layer
+    static std::array<std::array<float, outputNeurons>, 1> outputBiases; // the biases for the output layer
+    static std::array<std::array<float, outputNeurons>, hiddenNeurons> hiddenWeights; // the weights connecting the hidden and output layer
 
-    std::array<float, outputNeurons> outputLayer; // the output layer
+    static std::array<std::array<float, outputNeurons>, 1> outputLayer; // the output layer
 
-    std::array<float, outputNeurons> outputError; //error of output layer (used for adjusting biases also)
-    std::array<float, hiddenNeurons> hiddenError; //error of hidden layer
-    std::array<std::array<float, hiddenNeurons>, outputNeurons> hiddenWeightsPD; //partial derivatvies for the weights
-    std::array<std::array<float, inputNeurons>, hiddenNeurons> inputWeightsPD;
+    static std::array<std::array<float, outputNeurons>, 1> outputError; //error of output layer (used for adjusting biases and calculating weights PD)
+    static std::array<std::array<float, hiddenNeurons>, 1> hiddenError; //error of hidden layer
+    static std::array<std::array<float, outputNeurons>, hiddenNeurons> hiddenWeightsPD; //partial derivatvies for the weights
+    static std::array<std::array<float, hiddenNeurons>, inputNeurons> inputWeightsPD;
+
+    static std::array<std::array<float, hiddenNeurons>, 1> z1; //intermediate layers for derivative calculations
+    static std::array<std::array<float, outputNeurons>, 1> z2;
+
+    static std::array<std::array<float, hiddenNeurons>, 1> z3; // more temps cus im dumb
+
+    setRandom(inputWeights);
+    setRandom(hiddenWeights);
+
 
     //hyperparameters
-    size_t epochs = 10; //number of times we iterate through all of the training data
-    size_t batchSize = 128; //how many training examples we look at before we adjust the parameters
+    size_t numOfImages = 100;
+    size_t epochs = 3; //number of times we iterate through all of the training data
+    size_t batchSize = 50   ; //how many training examples we look at before we adjust the parameters
+    size_t batches = numOfImages / batchSize;
     float learningRate = 0.01; //how much we adjust the parameters by
+    
+    constexpr int numOfTrainingImages = 60000;
+    constexpr int numOfTestingImages = 10000;
 
+    using Image = std::array<std::array<float, inputNeurons>, 1>;
+    
+    static std::array<Image, numOfTrainingImages> images;
+    images = readTrainingImages("train-images.idx3-ubyte");
+    static std::array<int, numOfTrainingImages> labels;
+    labels = readTrainingLabels("train-labels.dix1-ubyte");
 
-    constexpr size_t Rows1 = 2, Cols1 = 3, Rows2 = 3, Cols2 = 2;
+    double average_cost = 0;
 
-    std::array<std::array<float, Cols1>, Rows1> matrix1 = {
-        std::array<float, Cols1>{1, 2, 3},
-        std::array<float, Cols1>{4, 5, 6}
-    };
+    for (std::size_t epoch = 0; epoch < epochs; ++epoch)
+    {
+        for (std::size_t batch = 0; batch < batches; ++batch)
+        {
+            std::size_t startImage = batch * batchSize;
+            std::size_t endImage = startImage + batchSize;
 
-    std::array<std::array<float, Cols2>, Rows1> matrix2 = {
-        std::array<float, Cols1>{7, 8},
-        std::array<float, Cols1>{9, 10},
-    };
+            for (std::size_t current_image = startImage; current_image < endImage; ++current_image)
+            {
+                
+                inputLayer = images[current_image];
+                int label = labels[current_image];
+                std::array<std::array<float, 10>, 1> correct = {0};
+                correct[0][label] = 1;
 
-    std::array<std::array<float, Cols1>, Rows1> result = {};
+                //forwards pass
+                matrixMultiply(inputLayer, inputWeights, z1);
+                matrixAddToArg1(z1, hiddenBiases);
+                ReLU(z1, hiddenLayer);
+                matrixMultiply(hiddenLayer, hiddenWeights, z2);
+                matrixAddToArg1(z2, outputBiases);
+                ReLU(z2, outputLayer);
+                
+                
+                //report cost
+                for(std::size_t i = 0; i < outputNeurons; ++i){
+                    average_cost += pow(correct[0][i] - outputLayer[0][i], 2);
+                }
 
-    matrixAdd(matrix1, matrix2, result);
+                //backwards pass
+                //calculate output erorr
+                matrixSubtract(correct, outputLayer, outputError); 
+                ReLUDerivative(z2, z2);
+                hadmardProduct(outputError, z2, outputError);
+                //use output error to calculate the partial derivatives for the hidden weights
+                matrixMultiplyTransposeFirstArgument(hiddenLayer, outputError, hiddenWeightsPD); 
+                //use output erorr to calculate hidden error
+                ReLUDerivative(z1,z1);
+                matrixMultiplyTransposeSecondElement(outputError, hiddenWeights, z3);
+                hadmardProduct(z3, z1, hiddenError);
+                //use hidden error to calculate partial derivatives for the input weights
+                matrixMultiplyTransposeFirstArgument(inputLayer, hiddenError, inputWeightsPD);
 
-    for(const auto& row : result) {
-        for(const auto& elem : row) {
-            std::cout << elem << " ";
+                matrixSubtractFromArg1(outputBiases, outputError);
+                matrixSubtractFromArg1(hiddenWeights, hiddenWeightsPD);
+                matrixSubtractFromArg1(outputBiases, outputError);
+                matrixSubtractFromArg1(inputWeights, inputWeightsPD);
+
+            }
         }
-        std::cout << std::endl;
+
     }
+    std::cout << "Average Cost this epoch is " << average_cost / numOfTrainingImages << std::endl;
+    average_cost = 0;
 
     return 0;
 
