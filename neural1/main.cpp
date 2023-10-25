@@ -30,81 +30,110 @@ int main(){
 
     setRandom(inputWeights);
     setRandom(hiddenWeights);
+    setZero(hiddenBiases);
+    setZero(outputBiases);
 
 
     //hyperparameters
-    size_t numOfImages = 100;
-    size_t epochs = 3; //number of times we iterate through all of the training data
-    size_t batchSize = 50   ; //how many training examples we look at before we adjust the parameters
-    size_t batches = numOfImages / batchSize;
-    float learningRate = 0.01; //how much we adjust the parameters by
+
+    size_t epochs = 50; //number of times we iterate through all of the training data
+   // size_t batchSize = 50   ; //how many training examples we look at before we adjust the parameters
+   // size_t batches = numOfImages / batchSize;
+    float learningRate = 0.0001; //how much we adjust the parameters by
+
     
     constexpr int numOfTrainingImages = 60000;
-    constexpr int numOfTestingImages = 10000;
+   // constexpr int numOfTestingImages = 10000;
 
-    using Image = std::array<std::array<float, inputNeurons>, 1>;
-    
-    static std::array<Image, numOfTrainingImages> images;
-    images = readTrainingImages("train-images.idx3-ubyte");
+
+    std::vector<std::vector<std::vector<float>>> images = readTrainingImages("train-images.idx3-ubyte");
     static std::array<int, numOfTrainingImages> labels;
-    labels = readTrainingLabels("train-labels.dix1-ubyte");
+    labels = readTrainingLabels("train-labels.idx1-ubyte");
 
     double average_cost = 0;
+    int count = 0;
 
     for (std::size_t epoch = 0; epoch < epochs; ++epoch)
     {
-        for (std::size_t batch = 0; batch < batches; ++batch)
+    
+        for (std::size_t current_image = 0; current_image < numOfTrainingImages; ++current_image)
         {
-            std::size_t startImage = batch * batchSize;
-            std::size_t endImage = startImage + batchSize;
 
-            for (std::size_t current_image = startImage; current_image < endImage; ++current_image)
+            setZero(outputError);
+            setZero(hiddenWeightsPD);
+            setZero(hiddenError);
+            setZero(inputWeightsPD);
+        
+            copyVectorToArray(inputLayer, images[current_image]);
+                 
+            int label = labels[current_image];
+            std::array<std::array<float, 10>, 1> correct = {0};
+            correct[0][label] = 1;
+
+            //forwards pass
+            matrixMultiply(inputLayer, inputWeights, z1);
+            matrixAddToArg1(z1, hiddenBiases);
+            ReLU(z1, hiddenLayer);
+            matrixMultiply(hiddenLayer, hiddenWeights, z2);
+            matrixAddToArg1(z2, outputBiases);
+            ReLU(z2, outputLayer);
+
+            
+
+            for(std::size_t x = 0; x < 10; x++)
             {
-                
-                inputLayer = images[current_image];
-                int label = labels[current_image];
-                std::array<std::array<float, 10>, 1> correct = {0};
-                correct[0][label] = 1;
-
-                //forwards pass
-                matrixMultiply(inputLayer, inputWeights, z1);
-                matrixAddToArg1(z1, hiddenBiases);
-                ReLU(z1, hiddenLayer);
-                matrixMultiply(hiddenLayer, hiddenWeights, z2);
-                matrixAddToArg1(z2, outputBiases);
-                ReLU(z2, outputLayer);
-                
-                
-                //report cost
-                for(std::size_t i = 0; i < outputNeurons; ++i){
-                    average_cost += pow(correct[0][i] - outputLayer[0][i], 2);
-                }
-
-                //backwards pass
-                //calculate output erorr
-                matrixSubtract(correct, outputLayer, outputError); 
-                ReLUDerivative(z2, z2);
-                hadmardProduct(outputError, z2, outputError);
-                //use output error to calculate the partial derivatives for the hidden weights
-                matrixMultiplyTransposeFirstArgument(hiddenLayer, outputError, hiddenWeightsPD); 
-                //use output erorr to calculate hidden error
-                ReLUDerivative(z1,z1);
-                matrixMultiplyTransposeSecondElement(outputError, hiddenWeights, z3);
-                hadmardProduct(z3, z1, hiddenError);
-                //use hidden error to calculate partial derivatives for the input weights
-                matrixMultiplyTransposeFirstArgument(inputLayer, hiddenError, inputWeightsPD);
-
-                matrixSubtractFromArg1(outputBiases, outputError);
-                matrixSubtractFromArg1(hiddenWeights, hiddenWeightsPD);
-                matrixSubtractFromArg1(outputBiases, outputError);
-                matrixSubtractFromArg1(inputWeights, inputWeightsPD);
-
+                average_cost += pow(outputLayer[0][x] - correct[0][x], 2);
             }
+            
+            //backwards pass
+            //calculate output erorr
+            matrixSubtract(correct, outputLayer, outputError); 
+            ReLUDerivative(z2, z2);
+            hadmardProduct(outputError, z2, outputError);
+            //use output error to calculate the partial derivatives for the hidden weights
+            matrixMultiplyTransposeFirstArgument(hiddenLayer, outputError, hiddenWeightsPD); 
+            //use output erorr to calculate hidden error
+            ReLUDerivative(z1,z1);
+            matrixMultiplyTransposeSecondElement(outputError, hiddenWeights, z3);
+            hadmardProduct(z3, z1, hiddenError);
+            //use hidden error to calculate partial derivatives for the input weights
+            matrixMultiplyTransposeFirstArgument(inputLayer, hiddenError, inputWeightsPD);
+
+            //adjust partial derivatives/costs by learning rate
+
+            if (count < 20)
+            {
+                std::cout << "Bef " << std::endl;
+                printArray(outputLayer);
+                printArray(outputError);
+                count++;
+            }
+            ElementwiseMultiplicationByScalar(outputError, learningRate);
+            ElementwiseMultiplicationByScalar(hiddenWeightsPD, learningRate);
+            ElementwiseMultiplicationByScalar(hiddenError, learningRate);
+            ElementwiseMultiplicationByScalar(inputWeightsPD, learningRate);
+
+            if (count < 20)
+            {
+                std::cout << "af " << std::endl;
+                printArray(outputError);
+                count++;
+            }
+
+            //adjust parameters by the adjusted partial derivatives
+            matrixSubtractFromArg1(outputBiases, outputError);
+            matrixSubtractFromArg1(hiddenWeights, hiddenWeightsPD);
+            matrixSubtractFromArg1(hiddenBiases, hiddenError);
+            matrixSubtractFromArg1(inputWeights, inputWeightsPD);
+
+
+
         }
 
+
+        
     }
-    std::cout << "Average Cost this epoch is " << average_cost / numOfTrainingImages << std::endl;
-    average_cost = 0;
+
 
     return 0;
 
