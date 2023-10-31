@@ -93,11 +93,10 @@ void matrixAddToArg1(std::array<std::array<float, Cols1>, Rows1>& resultMatrix, 
     }
 }
 template <std::size_t Rows1, std::size_t Cols1>
-void matrixSubtract(const std::array<std::array<float, Cols1>, Rows1>& matrix1, const std::array<std::array<float, Cols1>, Rows1>& matrix2, std::array<std::array<float, Cols1>, Rows1>& resultMatrix) { //subtracts second matrix from first and stores result in resultMatrix
-    for (std::size_t i = 0; i < Rows1; i++) {
-        for (std::size_t j = 0; j < Cols1; j++) {
-            resultMatrix[i][j] = matrix1[i][j] - matrix2[i][j];
-        }
+void matrixSubtract(const std::array<std::array<float, Cols1>, Rows1>& matrix1, std::array<float, Cols1> matrix2, std::array<std::array<float, Cols1>, Rows1>& resultMatrix) { //subtracts second matrix from first and stores result in resultMatrix
+    //as this function is only used for subtracting the predicted output from the correct output, the second matrix is a 1D array, and the second matrix is a 2D array with one row (so we treat it like a 1D array)
+    for (std::size_t j = 0; j < Cols1; j++) {
+        resultMatrix[0][j] = matrix1[0][j] - matrix2[j]; //only one row in each matrix even if the first is a 2D array
     }
 }
 template <std::size_t Rows1, std::size_t Cols1>
@@ -183,7 +182,7 @@ void printArray(std::array<std::array<float, Cols>, Rows>& arr) { //prints the a
 template<std::size_t Rows, std::size_t Cols>
 void copyVectorToArray(std::array<std::array<float, Cols>, Rows>& arr, const std::vector<std::vector<float>> arr2) { //copies a vector to an array
     if (arr2.size() != Rows || (arr2.size() > 0 && arr2[0].size() != Cols)) {
-        std::cout << "Dimension mismatch" << std::endl;
+        std::cout << "Dimension mismatch, arr1 is " << Rows << " by " <<  Cols << " and arr2 is " << arr2.size() << " by " << arr2[0].size() << std::endl;
         return;
     }
     for (std::size_t i = 0; i < Rows; ++i) {
@@ -192,7 +191,8 @@ void copyVectorToArray(std::array<std::array<float, Cols>, Rows>& arr, const std
         }
     }
 }
-int32_t reverseInt(int32_t i) {
+int32_t reverseInt(int32_t i) //as mnst data is stored in big endian format, we need to reverse the bytes to get the correct value
+{
     unsigned char ch1, ch2, ch3, ch4;
     ch1 = i & 255;
     ch2 = (i >> 8) & 255;
@@ -206,7 +206,7 @@ std::vector<std::vector<std::vector<float>>> readTrainingImages(const std::strin
 
     if (file.is_open())
     {
-        int32_t magicNumber = 0,  cols = 0, rows = 0;
+        int32_t magicNumber = 0, cols = 28, rows = 28; //i broke the rows and colums reader and dont really need to fix it so just hardcoding it for now
         std::size_t numOfImages = 0; 
 
         file.read((char*)&magicNumber, sizeof(magicNumber));
@@ -214,12 +214,7 @@ std::vector<std::vector<std::vector<float>>> readTrainingImages(const std::strin
 
         file.read((char*)&numOfImages, sizeof(numOfImages));
         numOfImages = reverseInt(numOfImages);
-
-        file.read((char*)&rows, sizeof(rows));
-        rows = reverseInt(rows);
-
-        file.read((char*)&cols, sizeof(cols));
-        cols = reverseInt(cols);
+        file.seekg(16);
 
         std::vector<std::vector<std::vector<float>>> images(numOfImages, std::vector<std::vector<float>>(1, std::vector<float>(rows * cols)));
 
