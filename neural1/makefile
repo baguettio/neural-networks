@@ -2,7 +2,7 @@
 CXX = g++
 
 # Specify options for the compiler
-CXXFLAGS = -Wall -Wextra -std=c++14
+CXXFLAGS = -Wall -Wextra -std=c++11 -O3
 
 # Target executable name
 TARGET = a.out
